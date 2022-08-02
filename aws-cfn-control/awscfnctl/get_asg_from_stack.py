@@ -35,22 +35,22 @@ def arg_parse():
 
 def get_asg_from_stack(stack_name, client):
 
-    asg = list()
+    asg = []
 
     stk_response = client.describe_stack_resources(StackName=stack_name)
 
     for resp in stk_response['StackResources']:
-        for resrc_type in resp:
-            if resrc_type == "ResourceType":
-                if resp[resrc_type] == "AWS::AutoScaling::AutoScalingGroup":
-                    asg.append(resp['PhysicalResourceId'])
+        asg.extend(
+            resp['PhysicalResourceId']
+            for resrc_type in resp
+            if resrc_type == "ResourceType"
+            and resp[resrc_type] == "AWS::AutoScaling::AutoScalingGroup"
+        )
 
     return asg
 
 
 def main():
-
-    rc = 0
 
     args = arg_parse()
 
@@ -62,9 +62,9 @@ def main():
     asg = get_asg_from_stack(stack, cfn_client)
 
     for a in asg:
-        print(' {}'.format(a))
+        print(f' {a}')
 
-    return rc
+    return 0
 
 if __name__ == "__main__":
     try:

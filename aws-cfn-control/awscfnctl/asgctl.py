@@ -21,10 +21,12 @@ progname = 'asgctl'
 
 def arg_parse():
 
-    parser = argparse.ArgumentParser(prog=progname,
-                                     description='Control the instances in an ASG',
-                                     epilog='Example:  {} <action> -a <asg_name> -r <region>'.format(progname)
-                                     )
+    parser = argparse.ArgumentParser(
+        prog=progname,
+        description='Control the instances in an ASG',
+        epilog=f'Example:  {progname} <action> -a <asg_name> -r <region>',
+    )
+
 
     opt_group = parser.add_argument_group('optional arguments')
     opt_group.add_argument('-r', dest='region', required=False, help="Region name")

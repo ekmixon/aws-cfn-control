@@ -67,7 +67,7 @@ def arg_parse():
 
 def image_info(client, owners, ami_name):
 
-    response = client.describe_images(
+    return client.describe_images(
         DryRun=False,
         Owners=[
             owners,
@@ -77,12 +77,10 @@ def image_info(client, owners, ami_name):
                 'Name': 'name',
                 'Values': [
                     ami_name,
-                ]
+                ],
             },
-        ]
+        ],
     )
-
-    return response
 
 def get_image_info(client, ami_id):
 
@@ -93,7 +91,7 @@ def get_image_info(client, ami_id):
         ],
     )
 
-    resp = dict()
+    resp = {}
 
     for p in _PROPS:
         try:
@@ -110,7 +108,7 @@ def get_image_info(client, ami_id):
 
 def print_image_info(ami, client):
 
-    resp = dict()
+    resp = {}
     resp = get_image_info(client, ami)
 
     for k in _PROPS:
@@ -118,7 +116,7 @@ def print_image_info(ami, client):
             if type(resp[k]) is list:
                 for blk_devs in resp[k]:
                     block_dev = dict(blk_devs)
-                    for dev in block_dev.keys():
+                    for dev in block_dev:
                         if type(block_dev[dev]) is str:
                             print(" {0:<20}:  {1:<30}    {2:<30}".format(k, dev, block_dev[dev]))
                         elif type(block_dev[dev]) is dict:
@@ -132,8 +130,6 @@ def print_image_info(ami, client):
 
 def main():
 
-    rc = 0
-
     args = arg_parse()
     region = args.region
     ami = args.ami_id
@@ -145,7 +141,7 @@ def main():
     print("Checking region {0} for AMI info...".format(region))
     print_image_info(ami, client)
 
-    return rc
+    return 0
 
 
 if __name__ == "__main__":

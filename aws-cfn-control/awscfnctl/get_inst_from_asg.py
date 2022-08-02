@@ -35,8 +35,6 @@ def arg_parse():
 
 def main():
 
-    rc = 0
-
     args = arg_parse()
 
     region = args.region
@@ -47,11 +45,11 @@ def main():
     instances = cfn_client.get_inst_from_asg(asg)
 
     for i in instances:
-        print(' {}'.format(i))
+        print(f' {i}')
 
     asg_status = cfn_client.ck_asg_inst_status(asg)
 
-    return rc
+    return 0
 
 if __name__ == "__main__":
     try:

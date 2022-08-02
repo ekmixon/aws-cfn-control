@@ -49,7 +49,7 @@ def main():
 
 
 
-    InstUserData = list()
+    InstUserData = []
     InstUserData = [
         '#!/usr/bin/env bash\n',
         '\n',

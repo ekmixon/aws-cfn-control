@@ -46,8 +46,6 @@ def get_stack_events(client, stack_name):
 
 def main():
 
-    rc = 0
-
     args = arg_parse()
     region = args.region
     stack_name = args.stack_name
@@ -56,7 +54,7 @@ def main():
     client = CfnControl(region=region)
     client.get_stack_info(stack_name=stack_name)
 
-    all_events = list()
+    all_events = []
 
     events = True
 
@@ -78,7 +76,7 @@ def main():
                     events = False
         time.sleep(1)
 
-    return rc
+    return 0
 
 if __name__ == "__main__":
     try:

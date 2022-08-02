@@ -20,14 +20,22 @@ import argparse
 import datetime
 from awscfnctl import CfnControl
 
-def prRed(prt): return("\033[91m{}\033[00m".format(prt))
-def prGreen(prt): return("\033[92m{}\033[00m".format(prt))
-def prYellow(prt): return("\033[93m{}\033[00m".format(prt))
-def prLightPurple(prt): return("\033[94m{}\033[00m".format(prt))
-def prPurple(prt): return("\033[95m{}\033[00m".format(prt))
-def prCyan(prt): return("\033[96m{}\033[00m".format(prt))
-def prLightGray(prt): return("\033[97m{}\033[00m".format(prt))
-def prBlack(prt): return("\033[98m{}\033[00m".format(prt))
+def prRed(prt):
+    return f"\033[91m{prt}\033[00m"
+def prGreen(prt):
+    return f"\033[92m{prt}\033[00m"
+def prYellow(prt):
+    return f"\033[93m{prt}\033[00m"
+def prLightPurple(prt):
+    return f"\033[94m{prt}\033[00m"
+def prPurple(prt):
+    return f"\033[95m{prt}\033[00m"
+def prCyan(prt):
+    return f"\033[96m{prt}\033[00m"
+def prLightGray(prt):
+    return f"\033[97m{prt}\033[00m"
+def prBlack(prt):
+    return f"\033[98m{prt}\033[00m"
 
 
 progname = 'getinstinfo'
@@ -72,18 +80,15 @@ def arg_parse():
 
 def main():
 
-    rc = 0
-
     args = arg_parse()
     region = args.region
     instance_state = args.instance_state
 
-    inst_info_all = list()
+    inst_info_all = []
 
     client = CfnControl(region=region)
     for inst, info in client.get_instance_info(instance_state=instance_state).items():
-        inst_info = list()
-        inst_info.append(inst)
+        inst_info = [inst]
         for k, v in info.items():
             if isinstance(v, datetime.datetime):
                 v = str(v)[:-6]
@@ -96,7 +101,7 @@ def main():
     print('\n'.join('{:<20} {:<20} {:<20.20}  {:<30}  {:<15}  {:<7}  {:<15}  {:<20}'.format(*i) for i in Sort(inst_info_all)))
     print
 
-    return rc
+    return 0
 
 if __name__ == "__main__":
     try:

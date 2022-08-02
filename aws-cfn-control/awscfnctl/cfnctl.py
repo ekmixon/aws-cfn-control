@@ -54,10 +54,7 @@ def arg_parse():
 
 def main():
 
-    rc = 0
     args = arg_parse()
-    rollback = 'ROLLBACK'
-
     bucket = args.bucket
     create_stack = args.create_stack
     del_stack = args.del_stack
@@ -79,13 +76,11 @@ def main():
         aws_profile = args.aws_profile
         print('Using profile {0}'.format(aws_profile))
 
-    if args.no_rollback:
-        rollback = 'DO_NOTHING'
-
+    rollback = 'DO_NOTHING' if args.no_rollback else 'ROLLBACK'
     client = CfnControl(region=region, aws_profile=aws_profile)
 
-    if ls_all_stack_info or ls_stacks:
-        if ls_all_stack_info and ls_stacks:
+    if ls_all_stack_info:
+        if ls_stacks:
             errmsg = "Specify either -l or -a, not both"
             raise ValueError(errmsg)
 
@@ -94,13 +89,15 @@ def main():
             stacks = client.ls_stacks(show_deleted=False)
             for stack, i in sorted(stacks.items()):
                 if len(stack) > 37:
-                    stack = stack[:37] + ">"
+                    stack = f"{stack[:37]}>"
                 print('{0:<42.40} {1:<21.19} {2:<30.28} {3:<.30}'.format(stack, str(i[0]), i[1], i[2]))
         elif ls_stacks:
             print("Listing stacks...")
             stacks = client.ls_stacks(show_deleted=False)
             for stack, i in sorted(stacks.items()):
-                print(' {}'.format(stack))
+                print(f' {stack}')
+    elif ls_stacks:
+        pass
     elif create_stack:
         if stack_name and param_file and not template:
             response = ""
@@ -112,42 +109,39 @@ def main():
 
         elif template and stack_name:
 
-            if not client.url_check(template):
-                if not os.path.isfile(template):
-                    errmsg = 'File "{}" does not exists'.format(template)
-                    raise ValueError(errmsg)
+            if not client.url_check(template) and not os.path.isfile(template):
+                errmsg = f'File "{template}" does not exists'
+                raise ValueError(errmsg)
             try:
                 if param_file:
                     param_file = param_file
-                    print("Parameters file specified at CLI: {}".format(param_file))
+                    print(f"Parameters file specified at CLI: {param_file}")
 
                 response = client.cr_stack(stack_name, param_file, verbose=verbose_param_file, set_rollback=rollback,
                                            template=template)
                 return response
 
             except Exception as cr_stack_err:
-                if "Member must have length less than or equal to 51200" in e[0]:
-                    if bucket:
-                        print("Uploading {0} to bucket {1} and creating stack".format(template, bucket))
-                        response = ""
-                        try:
-                            template_url = client.upload_to_bucket(template, bucket, template)
-                            response = client.cr_stack(stack_name, param_file, verbose=verbose_param_file,
-                                                       set_rollback=rollback, template=template_url)
-                        except Exception as upload_to_bucket_err:
-                            print("Got response: {0}".format(response))
-                            raise ValueError(upload_to_bucket_err)
-                    else:
-                        errmsg = "The template has too many bytes (>51,200), use the -b flag with a bucket name, or " \
-                             "upload the template to an s3 bucket and specify the bucket URL with the -t flag "
-                        raise ValueError(errmsg)
-                else:
+                if (
+                    "Member must have length less than or equal to 51200"
+                    not in e[0]
+                ):
                     raise ValueError(cr_stack_err)
-        elif template and not stack_name:
-            raise ValueError(errmsg_cr)
-        elif not template and stack_name:
-            raise ValueError(errmsg_cr)
-        elif not template and not stack_name:
+                if bucket:
+                    print("Uploading {0} to bucket {1} and creating stack".format(template, bucket))
+                    response = ""
+                    try:
+                        template_url = client.upload_to_bucket(template, bucket, template)
+                        response = client.cr_stack(stack_name, param_file, verbose=verbose_param_file,
+                                                   set_rollback=rollback, template=template_url)
+                    except Exception as upload_to_bucket_err:
+                        print("Got response: {0}".format(response))
+                        raise ValueError(upload_to_bucket_err)
+                else:
+                    errmsg = "The template has too many bytes (>51,200), use the -b flag with a bucket name, or " \
+                         "upload the template to an s3 bucket and specify the bucket URL with the -t flag "
+                    raise ValueError(errmsg)
+        else:
             raise ValueError(errmsg_cr)
     elif del_stack:
         if not stack_name:
@@ -160,7 +154,7 @@ def main():
         print("No actions requested - shouldn't have got this far.")
         return 0
 
-    return rc
+    return 0
 
 
 if __name__ == "__main__":

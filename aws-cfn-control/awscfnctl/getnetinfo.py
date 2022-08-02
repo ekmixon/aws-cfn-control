@@ -34,10 +34,7 @@ def get_subnets(client, vpc):
 
     all_subnets = client.get_subnets_from_vpc(vpc)
 
-    subnet_ids = list()
-    for subnet_id, subnet_info in all_subnets.items():
-        subnet_ids.append(subnet_id)
-
+    subnet_ids = [subnet_id for subnet_id, subnet_info in all_subnets.items()]
     return ' | '.join(subnet_ids)
 
 
@@ -46,7 +43,7 @@ def get_sec_groups(client, vpc):
     all_security_group_info = client.get_security_groups(vpc=vpc)
 
     output_count = 0
-    security_groups = list()
+    security_groups = []
     for r in all_security_group_info:
         seg_group_with_name = '{0} ({1:.20})'.format(r['GroupId'], r['GroupName'])
         output_count += 1
@@ -60,8 +57,6 @@ def get_sec_groups(client, vpc):
 
 
 def main():
-
-    rc = 0
 
     args = arg_parse()
     region = args.region
@@ -88,7 +83,7 @@ def main():
         print('   Security Groups: {0}'.format(get_sec_groups(client,vpc_id)))
         print("")
 
-    return rc
+    return 0
 
 if __name__ == "__main__":
     try:

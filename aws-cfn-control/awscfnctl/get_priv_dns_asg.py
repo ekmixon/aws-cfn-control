@@ -21,10 +21,12 @@ progname = 'get_priv_dns_asg'
 def arg_parse():
 
 
-    parser = argparse.ArgumentParser(prog=progname,
-                                     description='Print instance info from an ASG',
-                                     epilog='Example:  {} -s <stack_name> -r <region>'.format(progname)
-                                     )
+    parser = argparse.ArgumentParser(
+        prog=progname,
+        description='Print instance info from an ASG',
+        epilog=f'Example:  {progname} -s <stack_name> -r <region>',
+    )
+
 
     parser.add_argument('-i', dest='print_inst_id', action='store_true',
                         help='Print the instance IDs with the private DNS names'

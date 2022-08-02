@@ -54,11 +54,8 @@ class CfnControl:
         """
 
         self.aws_profile = kwords.get('aws_profile')
-        if not self.aws_profile:
+        if not self.aws_profile or self.aws_profile == 'NULL':
             self.aws_profile = 'default'
-        elif self.aws_profile == 'NULL':
-            self.aws_profile = 'default'
-
         print('Using AWS credentials profile "{0}"'.format(self.aws_profile))
 
         self.session = boto3.session.Session(profile_name=self.aws_profile)
@@ -88,7 +85,7 @@ class CfnControl:
         self.cfn_param_file = kwords.get('param_file')
 
         # get instances passed as an argument
-        self.instances = list()
+        self.instances = []
         try:
             if kwords.get('instances'):
                 self.instances = kwords.get('instances')
@@ -111,7 +108,7 @@ class CfnControl:
         #  current default is   ~/.cfnparm
         #
         self.param_file_list = None
-        self.cfn_param_file_values = dict()
+        self.cfn_param_file_values = {}
         self.cfn_param_file_basename = None
         self.cfn_param_base_dir = ".cfnparam"
         self.cfn_param_file_dir = os.path.join(self.homedir, self.cfn_param_base_dir)
@@ -121,7 +118,7 @@ class CfnControl:
         self.vpc_id = None
         self.template_url = None
         self.template_body = None
-        self.key_pairs = list()
+        self.key_pairs = []
 
         # First API call - grab key pairs, this will determine if we can talk to the API
         #
@@ -133,8 +130,9 @@ class CfnControl:
         except Exception as e:
             raise ValueError(e)
 
-        for pair in (key_pairs_response['KeyPairs']):
-            self.key_pairs.append(pair['KeyName'])
+        self.key_pairs.extend(
+            pair['KeyName'] for pair in key_pairs_response['KeyPairs']
+        )
 
         # For some lists, we only want to print out certain keys:
         #
@@ -177,11 +175,7 @@ class CfnControl:
 
         proc = subprocess.Popen(cmdlist, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
-        if proc.returncode != 0:
-            log = out + err
-        else:
-            log = out
-
+        log = out + err if proc.returncode != 0 else out
         return log, proc.returncode
 
     def instanace_list(self):
@@ -208,14 +202,13 @@ class CfnControl:
         # if last char == '\n', delete it
         if s[-1] == "\n":
             s = s[:-1]
-        l = s.split("\n")
-        return l
+        return s.split("\n")
 
     def get_asg_from_stack(self, stack_name=None):
 
         # returns a list of ASG names for a given stack
 
-        self.asg = list()
+        self.asg = []
 
         if stack_name is None:
             stack_name = self.stack_name
@@ -229,10 +222,12 @@ class CfnControl:
             raise ValueError(e)
 
         for resp in stk_response['StackResources']:
-            for resrc_type in resp:
-                if resrc_type == "ResourceType":
-                    if resp[resrc_type] == "AWS::AutoScaling::AutoScalingGroup":
-                        self.asg.append(resp['PhysicalResourceId'])
+            self.asg.extend(
+                resp['PhysicalResourceId']
+                for resrc_type in resp
+                if resrc_type == "ResourceType"
+                and resp[resrc_type] == "AWS::AutoScaling::AutoScalingGroup"
+            )
 
         return self.asg
 
@@ -249,11 +244,13 @@ class CfnControl:
         else:
             response = self.client_asg.describe_auto_scaling_groups(AutoScalingGroupNames=[asg])
 
-        self.instances = list()
+        self.instances = []
         # Build instance IDs list
         for r in response['AutoScalingGroups']:
-            for i in r['Instances']:
-                self.instances.append(self.ec2.Instance(i['InstanceId']).instance_id)
+            self.instances.extend(
+                self.ec2.Instance(i['InstanceId']).instance_id
+                for i in r['Instances']
+            )
 
         return self.instances
 
@@ -335,8 +332,8 @@ class CfnControl:
 
         response = self.client_ec2.describe_instance_status(InstanceIds=self.instances, IncludeAllInstances=True)
 
-        running = list()
-        not_running = list()
+        running = []
+        not_running = []
 
         for r in response['InstanceStatuses']:
             if (r['InstanceState']['Name']) == 'running':
@@ -354,8 +351,8 @@ class CfnControl:
             asg = self.asg
 
         response = self.client_asg.describe_auto_scaling_groups(AutoScalingGroupNames=[asg])
-        in_service = list()
-        not_in_service = list()
+        in_service = []
+        not_in_service = []
 
         # Build instance IDs list
         for r in response['AutoScalingGroups']:
@@ -373,12 +370,8 @@ class CfnControl:
 
     def enable_ena_vfi(self, instances=None):
 
-        if instances is None:
-            all_instances = self.instances
-        else:
-            all_instances = instances
-
-        inst_add_ena_vfi = list()
+        all_instances = self.instances if instances is None else instances
+        inst_add_ena_vfi = []
 
         print("Checking if instances are ENA/VFI enabled")
 
@@ -390,8 +383,7 @@ class CfnControl:
             )
 
             try:
-                if (response_vfi['SriovNetSupport']['Value']) == 'simple':
-                    pass
+                pass
             except KeyError:
                 if inst_id not in inst_add_ena_vfi:
                     inst_add_ena_vfi.append(inst_id)
@@ -417,7 +409,7 @@ class CfnControl:
         response_ec2_ena = None
 
         for inst_id in self.instances:
-            print('Enabling ENA/VFI on ' + inst_id)
+            print(f'Enabling ENA/VFI on {inst_id}')
             response_ec2_vfi = self.client_ec2.modify_instance_attribute(InstanceId=inst_id,
                                                                          SriovNetSupport={'Value': 'simple'}
                                                                          )
@@ -454,11 +446,18 @@ class CfnControl:
         if os.path.isfile(cfn_param_file):
             print("Using parameters file: {0}".format(cfn_param_file))
             parser.read(cfn_param_file)
-        elif os.path.isfile(os.path.join(self.cfn_param_file_dir, cfn_param_file + ".json.cf")):
-            print("Using parameters file: {0}".format(
-                os.path.join(self.cfn_param_file_dir, cfn_param_file + ".json.cf"))
+        elif os.path.isfile(
+            os.path.join(self.cfn_param_file_dir, f"{cfn_param_file}.json.cf")
+        ):
+            print(
+                "Using parameters file: {0}".format(
+                    os.path.join(
+                        self.cfn_param_file_dir, f"{cfn_param_file}.json.cf"
+                    )
+                )
             )
-            parser.read(os.path.join(self.cfn_param_file_dir, cfn_param_file + ".json.cf"))
+
+            parser.read(os.path.join(self.cfn_param_file_dir, f"{cfn_param_file}.json.cf"))
         elif os.path.isfile(os.path.join(self.cfn_param_file_dir, cfn_param_file)):
             print("Using parameters file: {0}".format(
                 os.path.join(self.cfn_param_file_dir, cfn_param_file))
@@ -468,7 +467,7 @@ class CfnControl:
             errmsg = "Config file {0} not found".format(cfn_param_file)
             raise ValueError(errmsg)
 
-        params = list()
+        params = []
 
         boolean_keys = ['EnableEnaVfi',
                         'AddNetInterfaces',
@@ -554,20 +553,19 @@ class CfnControl:
         try:
             if self.cfn_param_file_values['TemplateURL']:
                 self.template_url = self.cfn_param_file_values['TemplateURL']
-                print("Using template from URL {}".format(self.template_url))
+                print(f"Using template from URL {self.template_url}")
         except Exception as e:
-            if "TemplateURL" in e[0]:
-                try:
-                    if self.cfn_param_file_values['TemplateBody']:
-                        self.template_body = self.cfn_param_file_values['TemplateBody']
-                        print("Using template file {}".format(self.template_body))
-                        self.template_body = self.parse_cfn_template(self.template_body)
-                except Exception as e:
-                    raise ValueError(e)
-            else:
+            if "TemplateURL" not in e[0]:
                 raise ValueError(e)
 
-        print("Attempting to launch {}".format(stack_name))
+            try:
+                if self.cfn_param_file_values['TemplateBody']:
+                    self.template_body = self.cfn_param_file_values['TemplateBody']
+                    print(f"Using template file {self.template_body}")
+                    self.template_body = self.parse_cfn_template(self.template_body)
+            except Exception as e:
+                raise ValueError(e)
+        print(f"Attempting to launch {stack_name}")
 
         try:
 
@@ -661,7 +659,7 @@ class CfnControl:
                 print('{0} already being deleted'.format(stack_name))
                 return
 
-            for t in (stk_response['Stacks'][0]['Tags']):
+            for t in stk_response['Stacks'][0]['Tags']:
                 if t['Key'] == "cfnctl_param_file":
                     f_path = os.path.join(self.cfn_param_file_dir, t['Value'])
                     if os.path.isfile(f_path):
@@ -684,12 +682,10 @@ class CfnControl:
                                     print('Removed parameters file {0}'.format(f_path))
                                 except Exception as e:
                                     raise ValueError(e)
-                            else:
-                                pass
         except ClientError as e:
             raise ValueError(e)
 
-        print('Deleting {}'.format(stack_name))
+        print(f'Deleting {stack_name}')
         try:
             response = self.client_cfn.delete_stack(StackName=stack_name)
         except Exception as e:
@@ -698,7 +694,7 @@ class CfnControl:
         sc = response['ResponseMetadata']['HTTPStatusCode']
 
         if sc != 200:
-            errmsg = 'Problem deleting stack, status code {}'.format(sc)
+            errmsg = f'Problem deleting stack, status code {sc}'
             raise ValueError(errmsg)
 
         return
@@ -712,26 +708,24 @@ class CfnControl:
 
         """
 
-        all_stacks = list()
+        all_stacks = []
 
         paginator = self.client_cfn.get_paginator('list_stacks')
         response_iterator = paginator.paginate()
 
-        stacks = dict()
+        stacks = {}
         show_stack = False
 
         for page in response_iterator:
             all_stacks = page['StackSummaries']
             for r in all_stacks:
 
-                if [r['StackName']] == stack_name:
-                    show_stack = True
-                elif show_deleted and r['StackStatus'] == "DELETE_COMPLETE":
-                    show_stack = True
-                elif r['StackStatus'] == "DELETE_COMPLETE":
-                    show_stack = False
-                else:
-                    show_stack = True
+                show_stack = bool(
+                    [r['StackName']] == stack_name
+                    or show_deleted
+                    and r['StackStatus'] == "DELETE_COMPLETE"
+                    or r['StackStatus'] != "DELETE_COMPLETE"
+                )
 
                 if show_stack:
                     try:
@@ -778,12 +772,14 @@ class CfnControl:
             num_int_count = 0
 
             while num_interfaces < int(self.cfn_param_file_values['TotalNetInterfaces']):
-                attach_resp = self.attach_new_dev(i,
-                                                  num_interfaces_b + num_int_count,
-                                                  self.cfn_param_file_values['Subnet'],
-                                                  self.stack_name + "-net_dev",
-                                                  self.cfn_param_file_values['SecurityGroups']
-                                                  )
+                attach_resp = self.attach_new_dev(
+                    i,
+                    num_interfaces_b + num_int_count,
+                    self.cfn_param_file_values['Subnet'],
+                    f"{self.stack_name}-net_dev",
+                    self.cfn_param_file_values['SecurityGroups'],
+                )
+
 
                 instance = self.ec2.Instance(i)
 
@@ -809,7 +805,7 @@ class CfnControl:
         if stack_name is None:
             stack_name = self.stack_name
 
-        all_events = list()
+        all_events = []
         events = True
 
         stack_return_list = [
@@ -877,14 +873,13 @@ class CfnControl:
 
     def set_elastic_ip(self, instances=None, stack_eip=None):
 
-        launch_time = dict()
+        launch_time = {}
 
         if instances is None:
             instances = self.instances
 
-        has_eip = self.has_elastic_ip(instances)
-        if has_eip:
-            print('Elastic IP already allocated: ' + has_eip)
+        if has_eip := self.has_elastic_ip(instances):
+            print(f'Elastic IP already allocated: {has_eip}')
             return has_eip
         else:
             response = self.client_ec2.describe_instances(InstanceIds=instances, DryRun=False)
@@ -938,7 +933,7 @@ class CfnControl:
         except ClientError as e:
             print(e)
 
-        stk_output = dict()
+        stk_output = {}
 
         for i in stk_response['Stacks']:
             for r in i['Outputs']:
@@ -1034,10 +1029,7 @@ class CfnControl:
 
         all_vpcs = self.get_vpcs()
 
-        vpc_ids = list()
-        for vpc_k, vpc_values in all_vpcs.items():
-            vpc_ids.append(vpc_k)
-
+        vpc_ids = [vpc_k for vpc_k, vpc_values in all_vpcs.items()]
         #print(vpc_ids)
 
         for vpc_id, vpc_info in all_vpcs.items():

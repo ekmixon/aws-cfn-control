@@ -171,9 +171,7 @@ def print_image_info(args, client):
 
 def main():
 
-    rc = 0
-
-    ami_map = dict()
+    ami_map = {}
 
     args = arg_parse()
 
@@ -185,12 +183,12 @@ def main():
 
     for r in r_response_iad["Regions"]:
         region=r["RegionName"]
-        print(" " + region)
+        print(f" {region}")
 
         client = boto3.client('ec2', region_name=region)
 
-        response = dict()
-        ami_map[region] = dict()
+        response = {}
+        ami_map[region] = {}
 
         for arg_n, ami_id_iad in vars(args).items():
             if ami_id_iad:
@@ -206,7 +204,7 @@ def main():
 
     ##print(ami_map)
 
-    return rc
+    return 0
 
 
 if __name__ == "__main__":
